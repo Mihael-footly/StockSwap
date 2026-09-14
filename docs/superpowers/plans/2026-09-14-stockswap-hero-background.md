@@ -34,4 +34,4 @@
 - [x] Run `npm test`.
 - [x] Run `npm run typecheck`.
 - [x] Run `npm run build`, restore generated `next-env.d.ts` if changed, and run `git diff --check`.
-- [ ] Commit the hero asset and styles, then push `main` to GitHub.
+- [x] Commit the hero asset and styles, then push `main` to GitHub.
