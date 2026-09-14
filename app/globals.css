@@ -11,3 +11,11 @@
 .swap-page h1,.swap-page .hero-description{ text-shadow:0 2px 22px rgba(4,12,8,.5)}
 @media(max-width:600px){.swap-page::before,.swap-page::after{height:510px}.swap-page::before{background-image:linear-gradient(180deg,rgba(8,17,14,.42) 0%,rgba(8,17,14,.58) 34%,rgba(8,17,14,.9) 78%,#08110e 100%),url('/stockswap-hero.png');background-position:68% top}.swap-page::after{background:radial-gradient(ellipse at 50% 8%,rgba(8,17,14,0) 0%,rgba(8,17,14,.22) 42%,rgba(8,17,14,.78) 100%)}}
 @media(prefers-reduced-motion:reduce){.swap-page::before,.swap-page::after{animation:none}}
+
+/* The verified StockSwap token contract is always one click away in the header. */
+.contract-link{display:flex;align-items:center;gap:7px;min-height:44px;padding:0 10px;border:1px solid #294638;border-radius:8px;background:#0f2118;color:#9fc5ab;font-size:10px;font-family:'Manrope',sans-serif;letter-spacing:.2px;white-space:nowrap;text-decoration:none;transition:border-color .2s ease,background .2s ease,color .2s ease}
+.contract-link:hover{border-color:#55d99a;background:#173122;color:#d6ebdb}
+.contract-label{color:var(--green);font-size:8px;font-weight:700;letter-spacing:1.2px}
+.contract-link svg{color:#7da58c;flex:none}
+@media(max-width:900px){.contract-link{padding:0 8px;font-size:9px;gap:5px}.contract-link svg{display:none}}
+@media(max-width:600px){.contract-link{width:34px;min-height:38px;padding:0;justify-content:center}.contract-link span:not(.contract-label){display:none}.contract-link .contract-label{font-size:8px}}
