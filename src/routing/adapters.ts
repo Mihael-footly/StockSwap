@@ -23,12 +23,15 @@ export class UniswapV3Adapter implements LiquidityAdapter {
   const fees=[100,500,3000,10000];
   const legs=await Promise.all(path.slice(0,-1).map(async(a,i)=>{
    const b=path[i+1];
-   const pools=await Promise.all(fees.map(async fee=>{
+   const pools=await Promise.allSettled(fees.map(async fee=>{
     const address=await this.client.readContract({address:venueAddress('UniswapV3Factory'),abi:v3FactoryAbi,functionName:'getPool',args:[a.tokenAddress,b.tokenAddress,fee]});
     if(address===zeroAddress)return null;
     const [liquidity,slot]=await Promise.all([this.client.readContract({address,abi:v3PoolAbi,functionName:'liquidity'}),this.client.readContract({address,abi:v3PoolAbi,functionName:'slot0'})]);
     return liquidity>0n&&slot[0]>0n?{address,fee,sqrt:slot[0]}:null;
-   })); return pools.filter(x=>x!==null);
+   }));
+   const discovered=pools.flatMap(result=>result.status==='fulfilled'&&result.value?[result.value]:[]);
+   if(discovered.length||!pools.some(result=>result.status==='rejected'))return discovered;
+   throw new AppError('PROVIDER_UNAVAILABLE','The liquidity provider could not be reached.',503);
   }));
   if(legs.some(x=>!x.length))return [];
   const combinations=legs.length===1?legs[0].map(x=>[x]):legs[0].flatMap(a=>legs[1].map(b=>[a,b]));
@@ -46,7 +49,7 @@ export class UniswapV3Adapter implements LiquidityAdapter {
   }));
   // A reverted quoter indicates that this particular fee/path cannot execute. RPC failures are not called liquidity failures.
   const valid=results.flatMap(r=>r.status==='fulfilled'&&r.value?[r.value]:[]);
-  if(!valid.length&&results.some(r=>r.status==='rejected'&&!String(r.reason).includes('revert')))throw new AppError('PROVIDER_UNAVAILABLE','The liquidity provider could not be reached.',503);
+  if(!valid.length&&results.some(r=>r.status==='rejected'&&!String(r.reason).toLowerCase().includes('revert')))throw new AppError('PROVIDER_UNAVAILABLE','The liquidity provider could not be reached.',503);
   return valid;
  }
  buildTransaction(p:BuildSwapParams):TransactionRequest {

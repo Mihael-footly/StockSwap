@@ -15,6 +15,21 @@ describe('SwapRouterEngine',()=>{
  it('rejects unknown networks and disabled assets',async()=>{await expect(new SwapRouterEngine([fixture],[]).findRoutes({...p,chainId:1},1000n)).rejects.toThrow();await expect(new SwapRouterEngine([fixture],[]).findRoutes({...p,sourceAsset:{...a,swapEnabled:false}},1000n)).rejects.toThrow();});
  it('distinguishes an RPC failure from no liquidity',async()=>expect(new SwapRouterEngine([{...fixture,quote:async()=>{throw Error('network failure');}}],[]).findRoutes(p,1000n)).rejects.toThrow('unavailable'));
  it('rejects implausibly favorable as well as poor reference deviations',async()=>expect(new SwapRouterEngine([fixture],[]).findRoutes(p,500n)).rejects.toThrow('Poor execution'));
+ it('keeps usable V3 fee tiers when one pool discovery call fails',async()=>{
+  const pool='0x0000000000000000000000000000000000000005' as const;
+  const client={
+   readContract:async ({functionName,args}:any)=>{
+    if(functionName==='getPool'){if(args[2]===100)throw Error('temporary RPC failure');return args[2]===500?pool:zeroAddress;}
+    if(functionName==='liquidity')return 1n;
+    if(functionName==='slot0')return [2n**96n,0,0,0,0,0,false];
+    throw Error(`unexpected ${functionName}`);
+   },
+   simulateContract:async()=>({result:[1000n,[],[],100n]}),
+  } as never;
+  const routes=await new UniswapV3Adapter(client).quote(p,[a,b]);
+  expect(routes).toHaveLength(1);
+  expect(routes[0].fees).toEqual([500]);
+ });
 });
 describe('transaction constraints',()=>{
  const adapter=new UniswapV3Adapter({} as never);
