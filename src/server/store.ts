@@ -1,23 +1,164 @@
-import postgres from 'postgres';
 import type { QuoteRecord, SwapRecord } from '../lib/types';
-import { AppError,storageUnavailable } from './errors';
-// The client is reusable; all authoritative state is in Postgres, never in process memory.
-let connection:ReturnType<typeof postgres>|undefined;
-export function db(){
- if(!process.env.DATABASE_URL)throw new AppError('STORAGE_UNAVAILABLE','Swap execution is not enabled yet. Persistent storage must be connected.',503);
- return connection??=postgres(process.env.DATABASE_URL,{max:3,idle_timeout:20,connect_timeout:10,prepare:false});
+import { AppError, storageUnavailable } from './errors';
+import { isSupabaseConfigured, supabaseAdmin } from './supabase';
+
+type StoredRow = { data: unknown };
+
+async function storageQuery<T>(query: () => Promise<T>): Promise<T> {
+  if (!isSupabaseConfigured()) throw storageUnavailable();
+  try {
+    return await query();
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw storageUnavailable();
+  }
 }
-async function storageQuery<T>(query:()=>Promise<T>):Promise<T>{try{return await query();}catch(error){if(error instanceof AppError)throw error;throw storageUnavailable();}}
-export async function saveQuote(q:QuoteRecord){await storageQuery(()=>db()`insert into swap_quotes(id,wallet_address,expires_at,data) values(${q.id},${q.wallet.toLowerCase()},${q.expiresAt},${db().json(q as never)})`);}
-export async function getQuote(id:string):Promise<QuoteRecord>{return storageQuery(async()=>{const rows=await db()`select data from swap_quotes where id=${id}`;if(!rows.length)throw new AppError('QUOTE_NOT_FOUND','Quote not found.',404);return rows[0].data as QuoteRecord;});}
-export async function savePreparedSwap(s:SwapRecord,startBlock:bigint){
- return storageQuery(async()=>{const rows=await db()`insert into swaps(id,public_id,quote_id,wallet_address,chain_id,status,scan_cursor,data) values(${s.id},${s.publicId},${s.quote.id},${s.wallet.toLowerCase()},${s.chainId},${s.status},${startBlock.toString()},${db().json(s as never)}) on conflict (quote_id) do nothing returning data`;
-  if(rows.length)return rows[0].data as SwapRecord;
-  const existing=await db()`select data from swaps where quote_id=${s.quote.id}`;return existing[0].data as SwapRecord;});
+
+function throwIfError(error: { message: string; code?: string } | null): asserts error is null {
+  if (error) throw error;
 }
-export async function getSwap(id:string):Promise<SwapRecord>{return storageQuery(async()=>{const rows=await db()`select data from swaps where public_id=${id} or id::text=${id}`;if(!rows.length)throw new AppError('SWAP_NOT_FOUND','Swap not found.',404);return rows[0].data as SwapRecord;});}
-export async function updateSwap(s:SwapRecord){
- await storageQuery(()=>db()`update swaps set status=${s.status},tx_hash=${s.txHash},data=${db().json(s as never)},updated_at=now() where id=${s.id} and status not in ('COMPLETED','FAILED')`);
+
+export async function saveQuote(q: QuoteRecord) {
+  await storageQuery(async () => {
+    const { error } = await supabaseAdmin().from('swap_quotes').insert({
+      id: q.id,
+      wallet_address: q.wallet.toLowerCase(),
+      expires_at: q.expiresAt,
+      data: q,
+    });
+    throwIfError(error);
+  });
 }
-export async function listSwaps(wallet:string):Promise<SwapRecord[]>{return storageQuery(async()=>{const rows=await db()`select data from swaps where wallet_address=${wallet.toLowerCase()} order by created_at desc limit 100`;return rows.map(r=>r.data as SwapRecord);});}
-export async function recordEvent(event:string,properties:Record<string,string|number|boolean>){if(!process.env.DATABASE_URL)return;await storageQuery(()=>db()`insert into analytics_events(event,properties) values(${event},${db().json(properties)})`);}
+
+export async function getQuote(id: string): Promise<QuoteRecord> {
+  return storageQuery(async () => {
+    const { data, error } = await supabaseAdmin().from('swap_quotes').select('data').eq('id', id).maybeSingle<StoredRow>();
+    throwIfError(error);
+    if (!data) throw new AppError('QUOTE_NOT_FOUND', 'Quote not found.', 404);
+    return data.data as QuoteRecord;
+  });
+}
+
+export async function savePreparedSwap(s: SwapRecord, startBlock: bigint) {
+  return storageQuery(async () => {
+    const client = supabaseAdmin();
+    const inserted = await client
+      .from('swaps')
+      .insert({
+        id: s.id,
+        public_id: s.publicId,
+        quote_id: s.quote.id,
+        wallet_address: s.wallet.toLowerCase(),
+        chain_id: s.chainId,
+        status: s.status,
+        scan_cursor: startBlock.toString(),
+        data: s,
+      })
+      .select('data')
+      .maybeSingle<StoredRow>();
+
+    if (!inserted.error) {
+      if (!inserted.data) throw storageUnavailable();
+      return inserted.data.data as SwapRecord;
+    }
+    if (inserted.error.code !== '23505') throw inserted.error;
+
+    const existing = await client.from('swaps').select('data').eq('quote_id', s.quote.id).maybeSingle<StoredRow>();
+    throwIfError(existing.error);
+    if (!existing.data) throw storageUnavailable();
+    return existing.data.data as SwapRecord;
+  });
+}
+
+async function findSwap(column: 'public_id' | 'id', id: string): Promise<SwapRecord | null> {
+  const { data, error } = await supabaseAdmin().from('swaps').select('data').eq(column, id).maybeSingle<StoredRow>();
+  throwIfError(error);
+  return data ? (data.data as SwapRecord) : null;
+}
+
+export async function getSwap(id: string): Promise<SwapRecord> {
+  return storageQuery(async () => {
+    const swap = (await findSwap('public_id', id)) || (await findSwap('id', id));
+    if (!swap) throw new AppError('SWAP_NOT_FOUND', 'Swap not found.', 404);
+    return swap;
+  });
+}
+
+export async function updateSwap(s: SwapRecord) {
+  await storageQuery(async () => {
+    const { error } = await supabaseAdmin()
+      .from('swaps')
+      .update({ status: s.status, tx_hash: s.txHash, data: s, updated_at: new Date().toISOString() })
+      .eq('id', s.id)
+      .not('status', 'in', '("COMPLETED","FAILED")');
+    throwIfError(error);
+  });
+}
+
+export async function listSwaps(wallet: string): Promise<SwapRecord[]> {
+  return storageQuery(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from('swaps')
+      .select('data')
+      .eq('wallet_address', wallet.toLowerCase())
+      .order('created_at', { ascending: false })
+      .limit(100);
+    throwIfError(error);
+    return (data || []).map((row) => (row as StoredRow).data as SwapRecord);
+  });
+}
+
+export async function recordEvent(event: string, properties: Record<string, string | number | boolean>) {
+  if (!isSupabaseConfigured()) return;
+  await storageQuery(async () => {
+    const { error } = await supabaseAdmin().from('analytics_events').insert({ event, properties });
+    throwIfError(error);
+  });
+}
+
+export async function incrementRateLimit(key: string, windowStart: string): Promise<number> {
+  return storageQuery(async () => {
+    const client = supabaseAdmin();
+    const { data, error } = await client.rpc('bump_api_rate_limit', {
+      p_key: key,
+      p_window_start: windowStart,
+    });
+    if (!error) {
+      const count = Number(data);
+      if (!Number.isFinite(count)) throw storageUnavailable();
+      return count;
+    }
+
+    // Older projects may have the base schema but not the optional RPC yet.
+    // Keep the endpoint usable while the function is rolled out; the RPC is
+    // the atomic path once present.
+    if (error.code !== '42883' && error.code !== 'PGRST202') throw error;
+    const existing = await client.from('api_rate_limits').select('count').eq('key', key).eq('window_start', windowStart).maybeSingle<{ count: number }>();
+    throwIfError(existing.error);
+    const nextCount = Number(existing.data?.count || 0) + 1;
+    const upserted = await client.from('api_rate_limits').upsert({ key, window_start: windowStart, count: nextCount }, { onConflict: 'key,window_start' });
+    throwIfError(upserted.error);
+    return nextCount;
+  });
+}
+
+export async function listPendingSwaps(chainId: number): Promise<Array<{ data: SwapRecord; scan_cursor: string }>> {
+  return storageQuery(async () => {
+    const { data, error } = await supabaseAdmin()
+      .from('swaps')
+      .select('data,scan_cursor')
+      .eq('chain_id', chainId)
+      .in('status', ['READY_TO_SWAP', 'SWAP_SUBMITTED', 'CONFIRMING'])
+      .order('created_at', { ascending: true })
+      .limit(10);
+    throwIfError(error);
+    return (data || []).map((row) => ({ data: (row as { data: SwapRecord }).data, scan_cursor: String((row as { scan_cursor: string | number }).scan_cursor) }));
+  });
+}
+
+export async function updateScanCursor(id: string, scanCursor: bigint) {
+  await storageQuery(async () => {
+    const { error } = await supabaseAdmin().from('swaps').update({ scan_cursor: scanCursor.toString(), updated_at: new Date().toISOString() }).eq('id', id);
+    throwIfError(error);
+  });
+}

@@ -22,4 +22,22 @@ alter table swap_quotes enable row level security;
 alter table swaps enable row level security;
 alter table analytics_events enable row level security;
 alter table api_rate_limits enable row level security;
+create or replace function public.bump_api_rate_limit(p_key text, p_window_start timestamptz)
+returns integer
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare next_count integer;
+begin
+  insert into api_rate_limits(key, window_start, count)
+  values (p_key, p_window_start, 1)
+  on conflict (key, window_start) do update
+    set count = api_rate_limits.count + 1
+  returning count into next_count;
+  return next_count;
+end;
+$$;
+revoke execute on function public.bump_api_rate_limit(text, timestamptz) from public;
+grant execute on function public.bump_api_rate_limit(text, timestamptz) to service_role;
 commit;

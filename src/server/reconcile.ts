@@ -1,5 +1,5 @@
 import type { SwapRecord } from '../lib/types';
-import { db, getSwap, updateSwap } from './store';
+import { getSwap, listPendingSwaps, updateScanCursor, updateSwap } from './store';
 import { requireChain } from './rpc';
 import { verifyTransfers } from './verification';
 import { AppError } from './errors';
@@ -22,8 +22,8 @@ export async function reconcileSwap(s:SwapRecord):Promise<SwapRecord>{
 }
 // Discover wallet-submitted transactions even if the browser closes before posting their hash.
 export async function reconcilePending(){
- const sql=db(),client=await requireChain();
- const rows=await sql`select data,scan_cursor from swaps where chain_id=${config().chainId} and status in ('READY_TO_SWAP','SWAP_SUBMITTED','CONFIRMING') order by created_at asc limit 10`;
+ const client=await requireChain();
+ const rows=await listPendingSwaps(config().chainId);
  let processed=0;const started=Date.now();
  for(const row of rows){
   if(Date.now()-started>45000)break;
@@ -38,7 +38,7 @@ export async function reconcilePending(){
      if(tx){s.txHash=tx.hash;s.status='SWAP_SUBMITTED';await updateSwap(s);break;}
      if(Number(block.timestamp)*1000>Date.parse(s.quote.expiresAt)+120000){s.status='FAILED';s.failureReason='No matching transaction was mined before this quote expired.';await updateSwap(s);break;}
     }
-    await sql`update swaps set scan_cursor=${cursor.toString()} where id=${s.id}`;
+    await updateScanCursor(s.id,cursor);
    }
    await reconcileSwap(s);processed++;
   }catch(e){console.error('reconciliation_error',{swapId:s.id,code:e instanceof AppError?e.code:'RPC_OR_STORAGE_ERROR'});}
