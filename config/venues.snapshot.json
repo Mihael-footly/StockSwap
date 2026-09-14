@@ -1,0 +1,96 @@
+{
+  "verifiedAt": "2026-09-14",
+  "source": "https://developers.uniswap.org/deployments.json",
+  "records": [
+    {
+      "id": "v3-uniswapv3factory-robinhood-chain",
+      "protocol": "v3",
+      "contract": "UniswapV3Factory",
+      "chain": "Robinhood Chain",
+      "chainId": 4663,
+      "address": "0x1f7d7550B1b028f7571E69A784071F0205FD2EfA",
+      "tier": "labs-supported",
+      "sourceRepo": "https://github.com/Uniswap/v3-core",
+      "sourceRef": "56928a9",
+      "sourceCodeUrl": "https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Factory.sol",
+      "explorerUrl": "https://robinhoodchain.blockscout.com/address/0x1f7d7550B1b028f7571E69A784071F0205FD2EfA",
+      "env": "mainnet",
+      "status": "active",
+      "aliases": [
+        "robinhood"
+      ]
+    },
+    {
+      "id": "v3-quoterv2-robinhood-chain",
+      "protocol": "v3",
+      "contract": "QuoterV2",
+      "chain": "Robinhood Chain",
+      "chainId": 4663,
+      "address": "0x33e885eD0Ec9bF04EcfB19341582aADCb4c8A9E7",
+      "tier": "labs-supported",
+      "sourceRepo": "https://github.com/Uniswap/v3-core",
+      "sourceRef": "56928a9",
+      "sourceCodeUrl": "https://github.com/Uniswap/v3-periphery/blob/main/contracts/lens/QuoterV2.sol",
+      "explorerUrl": "https://robinhoodchain.blockscout.com/address/0x33e885eD0Ec9bF04EcfB19341582aADCb4c8A9E7",
+      "env": "mainnet",
+      "status": "active",
+      "aliases": [
+        "robinhood"
+      ]
+    },
+    {
+      "id": "v3-swaprouter02-robinhood-chain",
+      "protocol": "v3",
+      "contract": "SwapRouter02",
+      "chain": "Robinhood Chain",
+      "chainId": 4663,
+      "address": "0xCaf681a66D020601342297493863E78C959E5cb2",
+      "tier": "labs-supported",
+      "sourceRepo": "https://github.com/Uniswap/v3-core",
+      "sourceRef": "56928a9",
+      "sourceCodeUrl": "https://github.com/Uniswap/swap-router-contracts/blob/main/contracts/SwapRouter02.sol",
+      "explorerUrl": "https://robinhoodchain.blockscout.com/address/0xCaf681a66D020601342297493863E78C959E5cb2",
+      "env": "mainnet",
+      "status": "active",
+      "aliases": [
+        "robinhood"
+      ]
+    },
+    {
+      "id": "v2-uniswapv2factory-robinhood-chain",
+      "protocol": "v2",
+      "contract": "UniswapV2Factory",
+      "chain": "Robinhood Chain",
+      "chainId": 4663,
+      "address": "0x8bcEaA40B9AcdfAedF85AdF4FF01F5Ad6517937f",
+      "tier": "labs-supported",
+      "sourceRepo": "https://github.com/Uniswap/v2-core",
+      "sourceRef": "56928a9",
+      "sourceCodeUrl": "https://github.com/Uniswap/v2-core/blob/master/contracts/UniswapV2Factory.sol",
+      "explorerUrl": "https://robinhoodchain.blockscout.com/address/0x8bcEaA40B9AcdfAedF85AdF4FF01F5Ad6517937f",
+      "env": "mainnet",
+      "status": "active",
+      "aliases": [
+        "robinhood"
+      ]
+    },
+    {
+      "id": "v2-uniswapv2router02-robinhood-chain",
+      "protocol": "v2",
+      "contract": "UniswapV2Router02",
+      "chain": "Robinhood Chain",
+      "chainId": 4663,
+      "address": "0x89e5DB8B5aA49aA85AC63f691524311AEB649eba",
+      "tier": "labs-supported",
+      "sourceRepo": "https://github.com/Uniswap/v2-core",
+      "sourceRef": "56928a9",
+      "sourceCodeUrl": "https://github.com/Uniswap/v2-periphery/blob/master/contracts/UniswapV2Router02.sol",
+      "explorerUrl": "https://robinhoodchain.blockscout.com/address/0x89e5DB8B5aA49aA85AC63f691524311AEB649eba",
+      "env": "mainnet",
+      "status": "active",
+      "aliases": [
+        "robinhood"
+      ]
+    }
+  ]
+}

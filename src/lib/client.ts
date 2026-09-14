@@ -1,0 +1,5 @@
+import { formatUnits } from 'viem';
+export async function api<T>(url:string,data?:unknown,signal?:AbortSignal):Promise<T>{const response=await fetch(url,{method:data===undefined?'GET':'POST',headers:data===undefined?undefined:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data),signal});const body=await response.json();if(!response.ok)throw new Error(body.error?.message||'Request failed. Please try again.');return body;}
+export function units(raw:string|undefined,decimals=18,max=6){if(raw===undefined)return '—';const [whole,fraction]=formatUnits(BigInt(raw),decimals).split('.');return whole.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(fraction?'.'+fraction.slice(0,max).replace(/0+$/,''):'').replace(/\.$/,'');}
+export const short=(s:string)=>`${s.slice(0,6)}…${s.slice(-4)}`;
+export function track(event:string,properties:Record<string,string>={}){void fetch('/v1/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,properties}),keepalive:true}).catch(()=>{});}
