@@ -1,6 +1,6 @@
 # StockSwap
 
-StockSwap is a production-oriented same-chain swap interface for verified Stock Tokens. The repository is intentionally safe by default: it targets Robinhood Chain Testnet (46630), disables execution without Postgres and an explicit `EXECUTION_ENABLED=true`, and never accepts arbitrary token contracts or router targets from the browser.
+StockSwap is a production-oriented same-chain swap interface for verified Stock Tokens. The repository is intentionally safe by default: it targets Robinhood Chain mainnet (4663) in read-only mode, disables execution without Postgres and an explicit `EXECUTION_ENABLED=true`, and never accepts arbitrary token contracts or router targets from the browser.
 
 ## Repository audit
 
@@ -20,7 +20,7 @@ npm run dev:local
 
 Leave that terminal open while using the app, then visit http://127.0.0.1:3000.
 
-Safe read-only defaults are used when `.env.local` is absent. For a real execution environment, configure a dedicated RPC provider, Postgres using `config/schema.sql`, `CRON_SECRET`, and set `EXECUTION_ENABLED=true` only after the deployment has been tested with a funded development wallet.
+Safe read-only mainnet defaults are used when `.env.local` is absent. For a real execution environment, configure a dedicated RPC provider, Postgres using `config/schema.sql`, `CRON_SECRET`, and set `EXECUTION_ENABLED=true` only after the deployment has been tested with a funded development wallet. Phantom’s EVM provider is available from the connect modal when the Phantom extension or in-app browser injects `window.phantom.ethereum`.
 
 ```bash
 npm test

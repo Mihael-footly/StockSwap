@@ -5,23 +5,24 @@ import { X,ArrowUpRight,Wallet,Smartphone,LogOut } from 'lucide-react';
 import type { AppConfig,TransactionRequest } from '../lib/types';
 import { short,track } from '../lib/client';
 import { Modal } from './modal';
+import { getInjectedProvider, type InjectedWalletHost } from '../lib/wallet-provider';
 type Provider=EIP1193Provider&{on?:(event:string,handler:(value:unknown)=>void)=>void;removeListener?:(event:string,handler:(value:unknown)=>void)=>void;disconnect?:()=>Promise<void>};
 const Context=createContext<{address:Address|null;open:()=>void;send:(tx:TransactionRequest)=>Promise<Hex>;chainId:number|null;disconnect:()=>void}>({address:null,open:()=>{},send:async()=>{throw Error('Connect a wallet');},chainId:null,disconnect:()=>{}});
 export const useWallet=()=>useContext(Context);
 export function WalletProvider({config,children}:{config:AppConfig;children:ReactNode}){
  const [provider,setProvider]=useState<Provider|null>(null),[address,setAddress]=useState<Address|null>(null),[chainId,setChainId]=useState<number|null>(null),[show,setShow]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
  useEffect(()=>{if(!provider)return;const accounts=(v:unknown)=>{setAddress((v as Address[])[0]||null);};const chain=(v:unknown)=>setChainId(Number(v));provider.on?.('accountsChanged',accounts);provider.on?.('chainChanged',chain);return()=>{provider.removeListener?.('accountsChanged',accounts);provider.removeListener?.('chainChanged',chain);};},[provider]);
- async function connect(kind:'browser'|'mobile'){
+ async function connect(kind:'browser'|'phantom'|'mobile'){
   setBusy(true);setError('');
   try{
-   let p:Provider;
+   let p:Provider|null=null;
    if(kind==='mobile'){
     if(!config.walletConnectProjectId)throw Error('Mobile pairing is not configured for this deployment yet. You can use a wallet’s built-in browser.');
     const {EthereumProvider}=await import('@walletconnect/ethereum-provider');
-    p=await EthereumProvider.init({projectId:config.walletConnectProjectId,chains:[config.chainId],showQrModal:true,rpcMap:{[config.chainId]:config.publicRpcUrl},metadata:{name:'StockSwap',description:'Swap stock exposure.',url:window.location.origin,icons:[window.location.origin+'/icon.svg']}}) as unknown as Provider;
+    p=await EthereumProvider.init({projectId:config.walletConnectProjectId,chains:[config.chainId],showQrModal:true,rpcMap:{[config.chainId]:config.publicRpcUrl},metadata:{name:'StockSwap',description:'Swap stock exposure.',url:window.location.origin,icons:[window.location.origin+'/icon.png']}}) as unknown as Provider;
    }else{
-    p=(window as unknown as {ethereum?:Provider}).ethereum!;
-    if(!p)throw Error('No browser wallet found. Open StockSwap in your wallet browser, or install an EVM wallet.');
+    p=getInjectedProvider(kind,window as unknown as InjectedWalletHost) as Provider|null;
+    if(!p)throw Error(kind==='phantom'?'Phantom was not detected. Install Phantom or open StockSwap in the Phantom browser.':'No browser wallet found. Open StockSwap in your wallet browser, or install an EVM wallet.');
    }
    const accounts=await p.request({method:'eth_requestAccounts'});if(!accounts[0])throw Error('No account selected.');
    setProvider(p);setAddress(accounts[0]);setChainId(Number(await p.request({method:'eth_chainId'})));setShow(false);track('wallet_connected');
@@ -41,5 +42,5 @@ export function WalletProvider({config,children}:{config:AppConfig;children:Reac
   const c=defineChain({id:config.chainId,name:config.chainName,nativeCurrency:{name:'Ether',symbol:'ETH',decimals:18},rpcUrls:{default:{http:[config.publicRpcUrl]}}});
   return createWalletClient({chain:c,transport:custom(provider)}).sendTransaction({account:expected,to:tx.to,data:tx.data,value:BigInt(tx.value)});
  }
- return <Context.Provider value={{address,open:()=>{setShow(true);setError('');},send,chainId,disconnect}}>{children}{show&&<Modal title={address?'Your wallet':'Connect your wallet'} onClose={()=>setShow(false)}><p className="modal-intro">{address?'You stay in control of your assets.':'Choose how you’d like to connect. Your assets stay in your wallet.'}</p>{address?<><div className="wallet-address">{short(address)}</div><button className="wallet-option" onClick={disconnect}><LogOut size={20}/> Disconnect wallet</button></>:<><button className="wallet-option" onClick={()=>connect('browser')} disabled={busy}><span className="wallet-icon"><Wallet size={23}/></span><span><strong>Browser wallet</strong><small>MetaMask, Rabby & other EVM wallets</small></span><ArrowUpRight size={18}/></button><button className="wallet-option" onClick={()=>connect('mobile')} disabled={busy}><span className="wallet-icon blue"><Smartphone size={23}/></span><span><strong>WalletConnect</strong><small>{config.walletConnectProjectId?'Scan with your mobile wallet':'Mobile pairing setup pending'}</small></span><ArrowUpRight size={18}/></button></>}{error&&<p className="error-box" role="alert">{error}</p>}<p className="modal-footnote">StockSwap will never ask for your recovery phrase or private key.</p></Modal>}</Context.Provider>;
+ return <Context.Provider value={{address,open:()=>{setShow(true);setError('');},send,chainId,disconnect}}>{children}{show&&<Modal title={address?'Your wallet':'Connect your wallet'} onClose={()=>setShow(false)}><p className="modal-intro">{address?'You stay in control of your assets.':'Choose how you’d like to connect. Your assets stay in your wallet.'}</p>{address?<><div className="wallet-address">{short(address)}</div><button className="wallet-option" onClick={disconnect}><LogOut size={20}/> Disconnect wallet</button></>:<><button className="wallet-option" onClick={()=>connect('phantom')} disabled={busy}><span className="wallet-icon phantom"><Wallet size={23}/></span><span><strong>Phantom</strong><small>Connect with Phantom’s EVM wallet</small></span><ArrowUpRight size={18}/></button><button className="wallet-option" onClick={()=>connect('browser')} disabled={busy}><span className="wallet-icon"><Wallet size={23}/></span><span><strong>Browser wallet</strong><small>MetaMask, Rabby & other EVM wallets</small></span><ArrowUpRight size={18}/></button><button className="wallet-option" onClick={()=>connect('mobile')} disabled={busy}><span className="wallet-icon blue"><Smartphone size={23}/></span><span><strong>WalletConnect</strong><small>{config.walletConnectProjectId?'Scan with your mobile wallet':'Mobile pairing setup pending'}</small></span><ArrowUpRight size={18}/></button></>}{error&&<p className="error-box" role="alert">{error}</p>}<p className="modal-footnote">StockSwap will never ask for your recovery phrase or private key.</p></Modal>}</Context.Provider>;
 }
